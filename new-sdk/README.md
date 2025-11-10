@@ -13,7 +13,7 @@ This plan outlines the complete refactoring of the BrightData Python SDK from a 
 
 **Goal**: Create a production-ready SDK that combines the simplicity of `old-sdk` with the power and architecture of `ref-sdk`, following FAANG-level best practices.
 
----
+-------
 
 ## DETAILED COMPARISON: 3 REPOS ANALYSIS
 
