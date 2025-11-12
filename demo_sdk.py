@@ -463,7 +463,7 @@ def test_chatgpt_search():
         return
     
     try:
-        result = client.search.chatGPT(
+        result = client.search.chatGPT.chatGPT(
             prompt=prompt,
             webSearch=True if web_search == 'yes' else False,
             sync=True
@@ -582,7 +582,7 @@ def show_complete_interface():
     print("  client.search.linkedin.posts(profile_url, start_date, end_date)")
     print("  client.search.linkedin.profiles(firstName, lastName)")
     print("  client.search.linkedin.jobs(keyword, location, country, ...)")
-    print("  client.search.chatGPT(prompt, country, secondaryPrompt, webSearch, sync)")
+    print("  client.search.chatGPT.chatGPT(prompt, country, secondaryPrompt, webSearch, sync)")
     print()
     
     print("RESULT OBJECTS:")
