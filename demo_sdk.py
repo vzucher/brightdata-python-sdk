@@ -2,12 +2,15 @@
 """
 Interactive CLI demo for BrightData SDK.
 
-Tests the SDK with real API calls to verify:
-- Client initialization
-- Connection testing
-- Generic web scraping
-- Platform-specific scrapers
-- Hierarchical interface
+Demonstrates all implemented features:
+- Client initialization & connection testing
+- Generic web scraping (Web Unlocker)
+- Amazon scraping (products, reviews, sellers)
+- LinkedIn scraping & search (posts, jobs, profiles, companies)
+- ChatGPT scraping & search
+- SERP API (Google, Bing, Yandex)
+- Batch operations
+- Sync vs async modes
 """
 
 import sys
@@ -20,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent / 'src'))
 # Load environment variables
 try:
     from dotenv import load_dotenv
-    env_file = Path(__file__).parent.parent / '.env'
+    env_file = Path(__file__).parent / '.env'
     if env_file.exists():
         load_dotenv(env_file)
         print(f"✅ Loaded environment from: {env_file}")
@@ -33,7 +36,7 @@ from brightdata import BrightDataClient
 from brightdata.scrapers import get_registered_platforms
 
 print("=" * 80)
-print("🚀 BRIGHTDATA SDK - INTERACTIVE CLI DEMO")
+print("🚀 BRIGHTDATA SDK - COMPREHENSIVE INTERACTIVE DEMO")
 print("=" * 80)
 print()
 
@@ -49,19 +52,19 @@ try:
     print(f"✅ Client initialized: {client}")
     print(f"   Token: {client.token[:15]}...{client.token[-5:]}")
     print(f"   Timeout: {client.timeout}s")
-    print(f"   Web Unlocker Zone: {client.web_unlocker_zone}")
+    print(f"   Zones: unlocker={client.web_unlocker_zone}, serp={client.serp_zone}")
     print()
 except Exception as e:
     print(f"❌ Failed to initialize client: {e}")
     print()
-    print("Make sure BRIGHTDATA_API_TOKEN is set in your environment or .env file")
+    print("Make sure BRIGHTDATA_API_TOKEN is set in your environment")
     sys.exit(1)
 
 # ============================================================================
 # Step 2: Test Connection
 # ============================================================================
 
-print("🔌 Step 2: Test Connection")
+print("🔌 Step 2: Test Connection & Account Info")
 print("-" * 80)
 
 async def test_connection():
@@ -73,9 +76,10 @@ async def test_connection():
             
             # Get account info
             info = await client.get_account_info()
+            print(f"   Customer ID: {info.get('customer_id', 'N/A')}")
             print(f"   Zones: {info['zone_count']}")
             print(f"   Active zones:")
-            for zone in info['zones'][:5]:  # Show first 5
+            for zone in info['zones'][:5]:
                 zone_name = zone.get('name', 'unknown')
                 print(f"     - {zone_name}")
             if info['zone_count'] > 5:
@@ -90,118 +94,104 @@ async def test_connection():
 connected = asyncio.run(test_connection())
 
 if not connected:
-    print("⚠️  Cannot connect to API. Check your token.")
-    sys.exit(1)
+    print("⚠️  Cannot connect to API. Continuing with limited demo...")
+    print()
 
 # ============================================================================
-# Step 3: Show Registered Platforms
+# Step 3: Show Complete API Structure
 # ============================================================================
 
-print("🌐 Step 3: Registered Platform Scrapers")
+print("🌐 Step 3: Complete API Structure")
 print("-" * 80)
 
 platforms = get_registered_platforms()
-print(f"✅ {len(platforms)} platforms registered:")
-for platform in platforms:
-    print(f"   - {platform}")
+print(f"✅ {len(platforms)} platforms registered: {', '.join(platforms)}")
+print()
+
+print("📦 CLIENT.SCRAPE.* (URL-based extraction):")
+print("   • generic.url(url)")
+print("   • amazon.products(url, sync, timeout)")
+print("   • amazon.reviews(url, pastDays, keyWord, numOfReviews, sync, timeout)")
+print("   • amazon.sellers(url, sync, timeout)")
+print("   • linkedin.posts(url, sync, timeout)")
+print("   • linkedin.jobs(url, sync, timeout)")
+print("   • linkedin.profiles(url, sync, timeout)")
+print("   • linkedin.companies(url, sync, timeout)")
+print()
+
+print("🔍 CLIENT.SEARCH.* (Parameter-based discovery):")
+print("   • google(query, location, language, num_results)")
+print("   • bing(query, location, language)")
+print("   • yandex(query, location, language)")
+print("   • linkedin.posts(profile_url, start_date, end_date)")
+print("   • linkedin.profiles(firstName, lastName)")
+print("   • linkedin.jobs(keyword, location, ...11 filters)")
+print("   • chatGPT(prompt, country, secondaryPrompt, webSearch, sync)")
 print()
 
 # ============================================================================
-# Step 4: Test Generic Web Scraper (Web Unlocker)
+# Step 4: Test Generic Web Scraper
 # ============================================================================
 
-print("🕷️  Step 4: Test Generic Web Scraper")
+print("🕷️  Step 4: Generic Web Scraper Demo")
 print("-" * 80)
-print("Scraping https://httpbin.org/html (test URL)...")
-print()
+print("Scraping https://httpbin.org/json (test URL)...")
 
 try:
-    result = client.scrape.generic.url("https://httpbin.org/html")
+    result = client.scrape.generic.url("https://httpbin.org/json")
     
     if result.success:
         print("✅ Generic scrape successful!")
         print(f"   URL: {result.url}")
         print(f"   Status: {result.status}")
         print(f"   Domain: {result.root_domain}")
-        print(f"   Content size: {result.html_char_size:,} characters")
-        print(f"   Elapsed time: {result.elapsed_ms():.2f}ms")
-        print(f"   Data preview: {str(result.data)[:100]}...")
-        print()
+        print(f"   Size: {result.html_char_size:,} chars")
+        print(f"   Time: {result.elapsed_ms():.2f}ms")
+        print(f"   Data preview: {str(result.data)[:150]}...")
     else:
-        print(f"❌ Generic scrape failed: {result.error}")
-        print()
+        print(f"❌ Failed: {result.error}")
 except Exception as e:
     print(f"❌ Error: {e}")
+
+print()
+
+# ============================================================================
+# Interactive Menu
+# ============================================================================
+
+print("🎮 Interactive Testing Menu")
+print("=" * 80)
+print()
+
+def show_menu():
+    """Display interactive menu."""
+    print("\nWhat would you like to test?")
     print()
-
-# ============================================================================
-# Step 5: Show Platform Scraper Interfaces
-# ============================================================================
-
-print("🎯 Step 5: Platform Scraper Interface Examples")
-print("-" * 80)
-print()
-
-print("📦 Amazon Scraper:")
-print("   Available methods:")
-print(f"     - scrape(urls=[...])           - URL-based product scraping")
-print(f"     - products(keyword='laptop')   - Keyword-based product search")
-print(f"     - reviews(product_url='...')   - Get product reviews")
-print()
-
-amazon = client.scrape.amazon
-print(f"   Instance: {amazon}")
-print(f"   Dataset ID: {amazon.DATASET_ID}")
-print()
-
-print("💼 LinkedIn Scraper:")
-print("   Available methods:")
-print(f"     - scrape(urls=[...])                    - URL-based scraping")
-print(f"     - profiles(keyword='data scientist')    - Search profiles")
-print(f"     - companies(keyword='tech startup')     - Search companies")
-print(f"     - jobs(keyword='python', location='NYC') - Search jobs")
-print()
-
-linkedin = client.scrape.linkedin
-print(f"   Instance: {linkedin}")
-print(f"   Datasets:")
-print(f"     - Profiles: {linkedin.DATASET_ID}")
-print(f"     - Companies: {linkedin.DATASET_ID_COMPANIES}")
-print(f"     - Jobs: {linkedin.DATASET_ID_JOBS}")
-print()
-
-print("🤖 ChatGPT Scraper:")
-print("   Available methods:")
-print(f"     - prompt(prompt='Explain Python')       - Single prompt")
-print(f"     - prompts(prompts=['Q1', 'Q2'])         - Batch prompts")
-print()
-
-chatgpt = client.scrape.chatgpt
-print(f"   Instance: {chatgpt}")
-print(f"   Dataset ID: {chatgpt.DATASET_ID}")
-print()
-
-# ============================================================================
-# Step 6: Interactive Menu
-# ============================================================================
-
-print("🎮 Step 6: Interactive Testing Menu")
-print("-" * 80)
-print()
-print("What would you like to test?")
-print()
-print("  1. Test generic scraping (httpbin.org)")
-print("  2. Test Amazon product search (requires credits)")
-print("  3. Test LinkedIn job search (requires credits)")
-print("  4. Test ChatGPT prompt (requires credits)")
-print("  5. Show full client interface")
-print("  6. Exit")
-print()
+    print("  SCRAPING (URL-based):")
+    print("    1. Generic web scraping (httpbin.org)")
+    print("    2. Amazon products (URL)")
+    print("    3. Amazon reviews (URL + filters)")
+    print("    4. LinkedIn profiles (URL)")
+    print("    5. LinkedIn jobs (URL)")
+    print()
+    print("  SEARCH (Discovery):")
+    print("    6. Google search (SERP)")
+    print("    7. LinkedIn job search (keyword)")
+    print("    8. LinkedIn profile search (name)")
+    print("    9. ChatGPT prompt")
+    print()
+    print("  ADVANCED:")
+    print("   10. Batch scraping (multiple URLs)")
+    print("   11. Async vs sync mode comparison")
+    print("   12. Show complete interface reference")
+    print()
+    print("    0. Exit")
+    print()
 
 def test_generic_scrape():
     """Test generic web scraping."""
-    url = input("Enter URL to scrape (or press Enter for httpbin.org/json): ").strip()
-    url = url or "https://httpbin.org/json"
+    url = input("Enter URL to scrape (or press Enter for httpbin.org/html): ").strip()
+    url = url or "https://httpbin.org/html"
     
     print(f"\nScraping: {url}")
     result = client.scrape.generic.url(url)
@@ -216,13 +206,13 @@ def test_generic_scrape():
         print(f"❌ Failed: {result.error}")
 
 def test_amazon_products():
-    """Test Amazon product search."""
-    keyword = input("Enter search keyword (e.g., 'laptop'): ").strip()
-    if not keyword:
-        print("❌ Keyword required")
+    """Test Amazon product scraping (URL-based)."""
+    url = input("Enter Amazon product URL (e.g., https://amazon.com/dp/B123): ").strip()
+    if not url:
+        print("❌ URL required")
         return
     
-    print(f"\nSearching Amazon for: {keyword}")
+    print(f"\nScraping Amazon product: {url}")
     print("⚠️  This will use Bright Data credits!")
     confirm = input("Continue? (yes/no): ").strip().lower()
     
@@ -231,28 +221,160 @@ def test_amazon_products():
         return
     
     try:
-        result = client.scrape.amazon.products(keyword=keyword, max_results=5)
+        result = client.scrape.amazon.products(url=url, sync=True, timeout=65)
         
         if result.success:
             print(f"✅ Success!")
-            print(f"   Found {result.row_count} products")
+            if isinstance(result.data, dict):
+                print(f"   Title: {result.data.get('title', 'N/A')[:60]}")
+                print(f"   Price: {result.data.get('price', 'N/A')}")
+                print(f"   Rating: {result.data.get('rating', 'N/A')}")
             print(f"   Cost: ${result.cost:.4f}" if result.cost else "   Cost: N/A")
             print(f"   Time: {result.elapsed_ms():.2f}ms")
-            
-            if isinstance(result.data, list):
-                for i, product in enumerate(result.data[:3], 1):
-                    print(f"\n   Product {i}:")
-                    print(f"     Title: {product.get('title', 'N/A')[:60]}")
-                    print(f"     Price: {product.get('price', 'N/A')}")
         else:
             print(f"❌ Failed: {result.error}")
     except Exception as e:
         print(f"❌ Error: {e}")
 
-def test_linkedin_jobs():
-    """Test LinkedIn job search."""
+def test_amazon_reviews():
+    """Test Amazon reviews scraping with filters."""
+    url = input("Enter Amazon product URL: ").strip()
+    if not url:
+        print("❌ URL required")
+        return
+    
+    print("\nOptional filters:")
+    past_days = input("  Past days (or Enter to skip): ").strip()
+    keyword = input("  Keyword filter (or Enter to skip): ").strip()
+    num_reviews = input("  Number of reviews (or Enter for default): ").strip()
+    
+    print(f"\nScraping reviews from: {url}")
+    print("⚠️  This will use Bright Data credits!")
+    confirm = input("Continue? (yes/no): ").strip().lower()
+    
+    if confirm != 'yes':
+        print("Cancelled")
+        return
+    
+    try:
+        result = client.scrape.amazon.reviews(
+            url=url,
+            pastDays=int(past_days) if past_days else None,
+            keyWord=keyword if keyword else None,
+            numOfReviews=int(num_reviews) if num_reviews else None,
+            sync=True
+        )
+        
+        if result.success:
+            print(f"✅ Success!")
+            print(f"   Reviews: {result.row_count}")
+            print(f"   Cost: ${result.cost:.4f}" if result.cost else "   Cost: N/A")
+        else:
+            print(f"❌ Failed: {result.error}")
+    except Exception as e:
+        print(f"❌ Error: {e}")
+
+def test_linkedin_profiles():
+    """Test LinkedIn profile scraping (URL-based)."""
+    url = input("Enter LinkedIn profile URL (e.g., https://linkedin.com/in/johndoe): ").strip()
+    if not url:
+        print("❌ URL required")
+        return
+    
+    print(f"\nScraping LinkedIn profile: {url}")
+    print("⚠️  This will use Bright Data credits!")
+    confirm = input("Continue? (yes/no): ").strip().lower()
+    
+    if confirm != 'yes':
+        print("Cancelled")
+        return
+    
+    try:
+        result = client.scrape.linkedin.profiles(url=url, sync=True)
+        
+        if result.success:
+            print(f"✅ Success!")
+            print(f"   Cost: ${result.cost:.4f}" if result.cost else "   Cost: N/A")
+            print(f"   Time: {result.elapsed_ms():.2f}ms")
+            if isinstance(result.data, dict):
+                print(f"   Name: {result.data.get('name', 'N/A')}")
+                print(f"   Headline: {result.data.get('headline', 'N/A')[:60]}")
+        else:
+            print(f"❌ Failed: {result.error}")
+    except Exception as e:
+        print(f"❌ Error: {e}")
+
+def test_linkedin_jobs_url():
+    """Test LinkedIn job scraping (URL-based)."""
+    url = input("Enter LinkedIn job URL (e.g., https://linkedin.com/jobs/view/123): ").strip()
+    if not url:
+        print("❌ URL required")
+        return
+    
+    print(f"\nScraping LinkedIn job: {url}")
+    print("⚠️  This will use Bright Data credits!")
+    confirm = input("Continue? (yes/no): ").strip().lower()
+    
+    if confirm != 'yes':
+        print("Cancelled")
+        return
+    
+    try:
+        result = client.scrape.linkedin.jobs(url=url, sync=True)
+        
+        if result.success:
+            print(f"✅ Success!")
+            print(f"   Cost: ${result.cost:.4f}" if result.cost else "   Cost: N/A")
+        else:
+            print(f"❌ Failed: {result.error}")
+    except Exception as e:
+        print(f"❌ Error: {e}")
+
+def test_google_search():
+    """Test Google SERP search."""
+    query = input("Enter search query: ").strip()
+    if not query:
+        print("❌ Query required")
+        return
+    
+    location = input("Enter location (e.g., 'United States', or Enter for default): ").strip()
+    
+    print(f"\nSearching Google: {query}")
+    print("⚠️  This will use Bright Data credits!")
+    confirm = input("Continue? (yes/no): ").strip().lower()
+    
+    if confirm != 'yes':
+        print("Cancelled")
+        return
+    
+    try:
+        result = client.search.google(
+            query=query,
+            location=location if location else None,
+            num_results=10
+        )
+        
+        if result.success:
+            print(f"✅ Success!")
+            print(f"   Total found: {result.total_found:,}" if result.total_found else "   Total: N/A")
+            print(f"   Results returned: {len(result.data)}")
+            print(f"   Cost: ${result.cost:.4f}" if result.cost else "   Cost: N/A")
+            
+            if result.data:
+                print("\n   Top 3 results:")
+                for i, item in enumerate(result.data[:3], 1):
+                    print(f"   {i}. {item.get('title', 'N/A')[:60]}")
+                    print(f"      {item.get('url', 'N/A')[:70]}")
+        else:
+            print(f"❌ Failed: {result.error}")
+    except Exception as e:
+        print(f"❌ Error: {e}")
+
+def test_linkedin_job_search():
+    """Test LinkedIn job search (discovery)."""
     keyword = input("Enter job keyword (e.g., 'python developer'): ").strip()
-    location = input("Enter location (e.g., 'NYC'): ").strip()
+    location = input("Enter location (e.g., 'New York', or Enter to skip): ").strip()
+    remote = input("Remote only? (yes/no, or Enter to skip): ").strip().lower()
     
     if not keyword:
         print("❌ Keyword required")
@@ -261,6 +383,8 @@ def test_linkedin_jobs():
     print(f"\nSearching LinkedIn jobs: {keyword}")
     if location:
         print(f"Location: {location}")
+    if remote == 'yes':
+        print("Remote: Yes")
     print("⚠️  This will use Bright Data credits!")
     confirm = input("Continue? (yes/no): ").strip().lower()
     
@@ -269,30 +393,68 @@ def test_linkedin_jobs():
         return
     
     try:
-        result = client.scrape.linkedin.jobs(
+        result = client.search.linkedin.jobs(
             keyword=keyword,
             location=location if location else None,
-            max_results=5
+            remote=True if remote == 'yes' else None,
+            timeout=180
         )
         
         if result.success:
             print(f"✅ Success!")
-            print(f"   Found {result.row_count} jobs")
+            print(f"   Jobs found: {result.row_count}")
             print(f"   Cost: ${result.cost:.4f}" if result.cost else "   Cost: N/A")
         else:
             print(f"❌ Failed: {result.error}")
     except Exception as e:
         print(f"❌ Error: {e}")
 
-def test_chatgpt_prompt():
-    """Test ChatGPT prompt."""
+def test_linkedin_profile_search():
+    """Test LinkedIn profile search by name."""
+    first_name = input("Enter first name: ").strip()
+    last_name = input("Enter last name (or Enter to skip): ").strip()
+    
+    if not first_name:
+        print("❌ First name required")
+        return
+    
+    print(f"\nSearching LinkedIn profiles: {first_name} {last_name}")
+    print("⚠️  This will use Bright Data credits!")
+    confirm = input("Continue? (yes/no): ").strip().lower()
+    
+    if confirm != 'yes':
+        print("Cancelled")
+        return
+    
+    try:
+        result = client.search.linkedin.profiles(
+            firstName=first_name,
+            lastName=last_name if last_name else None,
+            timeout=180
+        )
+        
+        if result.success:
+            print(f"✅ Success!")
+            print(f"   Profiles found: {result.row_count}")
+            print(f"   Cost: ${result.cost:.4f}" if result.cost else "   Cost: N/A")
+        else:
+            print(f"❌ Failed: {result.error}")
+    except Exception as e:
+        print(f"❌ Error: {e}")
+
+def test_chatgpt_search():
+    """Test ChatGPT search."""
     prompt = input("Enter prompt for ChatGPT: ").strip()
     
     if not prompt:
         print("❌ Prompt required")
         return
     
+    web_search = input("Enable web search? (yes/no): ").strip().lower()
+    
     print(f"\nSending prompt to ChatGPT: {prompt}")
+    if web_search == 'yes':
+        print("Web search: Enabled")
     print("⚠️  This will use Bright Data credits!")
     confirm = input("Continue? (yes/no): ").strip().lower()
     
@@ -301,92 +463,179 @@ def test_chatgpt_prompt():
         return
     
     try:
-        result = client.scrape.chatgpt.prompt(prompt=prompt)
+        result = client.search.chatGPT(
+            prompt=prompt,
+            webSearch=True if web_search == 'yes' else False,
+            sync=True
+        )
         
         if result.success:
             print(f"✅ Success!")
             print(f"   Cost: ${result.cost:.4f}" if result.cost else "   Cost: N/A")
-            print(f"   Response: {result.data}")
+            print(f"   Response preview: {str(result.data)[:200]}...")
         else:
             print(f"❌ Failed: {result.error}")
     except Exception as e:
         print(f"❌ Error: {e}")
 
-def show_interface():
-    """Show full client interface."""
+def test_batch_scraping():
+    """Test batch scraping (multiple URLs)."""
+    print("\nBatch Scraping Demo")
+    print("Enter 3 URLs to scrape concurrently:")
+    
+    urls = []
+    for i in range(3):
+        url = input(f"  URL {i+1} (or Enter for default): ").strip()
+        urls.append(url or f"https://httpbin.org/html")
+    
+    print(f"\nScraping {len(urls)} URLs concurrently...")
+    
+    try:
+        import time
+        start = time.time()
+        
+        results = client.scrape.generic.url(urls)
+        
+        elapsed = time.time() - start
+        
+        print(f"✅ Completed in {elapsed:.2f}s")
+        print()
+        
+        for i, result in enumerate(results, 1):
+            status = "✅" if result.success else "❌"
+            print(f"{status} {i}. {result.url[:50]}")
+            print(f"   Status: {result.status}, Size: {result.html_char_size} chars")
+        
+        print(f"\nTotal time: {elapsed:.2f}s")
+        print(f"Average per URL: {elapsed/len(urls):.2f}s")
+    except Exception as e:
+        print(f"❌ Error: {e}")
+
+def test_sync_vs_async():
+    """Test sync vs async mode comparison."""
+    url = input("Enter URL (or Enter for default): ").strip()
+    url = url or "https://httpbin.org/html"
+    
+    print(f"\nComparing sync vs async modes for: {url}")
+    print("⚠️  This will use Bright Data credits!")
+    confirm = input("Continue? (yes/no): ").strip().lower()
+    
+    if confirm != 'yes':
+        print("Cancelled")
+        return
+    
+    try:
+        import time
+        
+        # Test sync mode
+        print("\n1. Sync mode (immediate response):")
+        start = time.time()
+        result_sync = client.scrape.generic.url(url)
+        sync_time = time.time() - start
+        
+        print(f"   Time: {sync_time:.2f}s")
+        print(f"   Success: {result_sync.success}")
+        
+        # Test async mode  
+        print("\n2. Async mode (with polling):")
+        print("   (Would use sync=False parameter on platform scrapers)")
+        print("   Generic scraper doesn't have sync mode, but platform scrapers do")
+        print()
+        print("   Example:")
+        print("     result = client.scrape.linkedin.profiles(url='...', sync=False)")
+        
+    except Exception as e:
+        print(f"❌ Error: {e}")
+
+def show_complete_interface():
+    """Show complete client interface reference."""
     print("\n" + "=" * 80)
-    print("📖 FULL CLIENT INTERFACE")
+    print("📖 COMPLETE CLIENT INTERFACE REFERENCE")
     print("=" * 80)
     print()
     
-    print("Client Initialization:")
-    print("  client = BrightDataClient()  # Auto-loads from env")
-    print("  client = BrightDataClient(token='your_token')")
+    print("INITIALIZATION:")
+    print("  client = BrightDataClient()  # Auto-loads from environment")
+    print("  client = BrightDataClient(token='your_token', timeout=60)")
     print()
     
-    print("Connection Management:")
+    print("CONNECTION:")
     print("  is_valid = await client.test_connection()")
     print("  info = await client.get_account_info()")
     print()
     
-    print("Generic Web Scraping (Web Unlocker):")
-    print("  result = client.scrape.generic.url('https://example.com')")
-    print("  result = await client.scrape.generic.url_async('https://example.com')")
+    print("SCRAPE (URL-based extraction):")
+    print("  client.scrape.generic.url(url)")
+    print("  client.scrape.amazon.products(url, sync=True, timeout=65)")
+    print("  client.scrape.amazon.reviews(url, pastDays, keyWord, numOfReviews, sync, timeout)")
+    print("  client.scrape.amazon.sellers(url, sync, timeout)")
+    print("  client.scrape.linkedin.posts(url, sync, timeout)")
+    print("  client.scrape.linkedin.jobs(url, sync, timeout)")
+    print("  client.scrape.linkedin.profiles(url, sync, timeout)")
+    print("  client.scrape.linkedin.companies(url, sync, timeout)")
     print()
     
-    print("Amazon Scraper:")
-    print("  # URL-based scraping")
-    print("  result = client.scrape.amazon.scrape(urls=['https://amazon.com/dp/B123'])")
-    print()
-    print("  # Keyword-based search")
-    print("  result = client.scrape.amazon.products(keyword='laptop', max_results=10)")
-    print("  result = client.scrape.amazon.reviews(product_url='https://amazon.com/dp/B123')")
-    print()
-    
-    print("LinkedIn Scraper:")
-    print("  # URL-based scraping")
-    print("  result = client.scrape.linkedin.scrape(urls=['https://linkedin.com/in/john'])")
-    print()
-    print("  # Keyword-based search")
-    print("  result = client.scrape.linkedin.profiles(keyword='data scientist', location='SF')")
-    print("  result = client.scrape.linkedin.companies(keyword='tech startup', location='NYC')")
-    print("  result = client.scrape.linkedin.jobs(keyword='python', location='remote')")
+    print("SEARCH (Parameter-based discovery):")
+    print("  client.search.google(query, location, language, num_results)")
+    print("  client.search.bing(query, location)")
+    print("  client.search.yandex(query, location)")
+    print("  client.search.linkedin.posts(profile_url, start_date, end_date)")
+    print("  client.search.linkedin.profiles(firstName, lastName)")
+    print("  client.search.linkedin.jobs(keyword, location, country, ...)")
+    print("  client.search.chatGPT(prompt, country, secondaryPrompt, webSearch, sync)")
     print()
     
-    print("ChatGPT Scraper:")
-    print("  result = client.scrape.chatgpt.prompt(prompt='Explain async programming')")
-    print("  result = client.scrape.chatgpt.prompts(prompts=['Q1', 'Q2', 'Q3'])")
+    print("RESULT OBJECTS:")
+    print("  result.success       # bool")
+    print("  result.data          # Any - scraped/searched data")
+    print("  result.error         # str | None")
+    print("  result.cost          # float | None - USD")
+    print("  result.elapsed_ms()  # float - milliseconds")
+    print("  result.to_json()     # str - JSON serialization")
+    print("  result.save_to_file('output.json')")
     print()
     
-    print("Result Objects:")
-    print("  result.success       # True/False")
-    print("  result.data          # Scraped data")
-    print("  result.elapsed_ms()  # Timing")
-    print("  result.cost          # Cost in USD")
-    print("  result.to_json()     # Serialize")
+    print("ASYNC USAGE:")
+    print("  async with BrightDataClient() as client:")
+    print("      result = await client.scrape.generic.url_async(url)")
     print()
 
-# Interactive menu
+# Interactive loop
 while True:
     try:
-        choice = input("\nEnter choice (1-6): ").strip()
+        show_menu()
+        choice = input("Enter choice (0-12): ").strip()
         print()
         
-        if choice == "1":
+        if choice == "0":
+            print("👋 Goodbye!")
+            break
+        elif choice == "1":
             test_generic_scrape()
         elif choice == "2":
             test_amazon_products()
         elif choice == "3":
-            test_linkedin_jobs()
+            test_amazon_reviews()
         elif choice == "4":
-            test_chatgpt_prompt()
+            test_linkedin_profiles()
         elif choice == "5":
-            show_interface()
+            test_linkedin_jobs_url()
         elif choice == "6":
-            print("👋 Goodbye!")
-            break
+            test_google_search()
+        elif choice == "7":
+            test_linkedin_job_search()
+        elif choice == "8":
+            test_linkedin_profile_search()
+        elif choice == "9":
+            test_chatgpt_search()
+        elif choice == "10":
+            test_batch_scraping()
+        elif choice == "11":
+            test_sync_vs_async()
+        elif choice == "12":
+            show_complete_interface()
         else:
-            print("❌ Invalid choice. Please enter 1-6.")
+            print("❌ Invalid choice. Please enter 0-12.")
     
     except KeyboardInterrupt:
         print("\n\n👋 Interrupted. Goodbye!")
@@ -398,6 +647,5 @@ while True:
 
 print()
 print("=" * 80)
-print("Demo completed!")
+print("Demo completed! For more info, see README.md")
 print("=" * 80)
-
