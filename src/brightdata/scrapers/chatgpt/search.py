@@ -213,7 +213,7 @@ class ChatGPTSearchService:
         payload: List[Dict[str, Any]],
         timeout: int,
     ) -> ScrapeResult:
-        """Execute using sync mode (/scrape endpoint - immediate)."""
+        """Execute using sync mode (/scrape endpoint - immediate or polling if 202)."""
         request_sent_at = datetime.now(timezone.utc)
         
         params = {"dataset_id": self.DATASET_ID}
@@ -228,13 +228,14 @@ class ChatGPTSearchService:
             data_received_at = datetime.now(timezone.utc)
             
             if response.status == 200:
+                # Immediate response
                 data = await response.json()
                 row_count = len(data) if isinstance(data, list) else None
-                cost = (row_count * 0.005) if row_count else None  # ChatGPT cost
+                cost = (row_count * 0.005) if row_count else None
                 
                 return ScrapeResult(
                     success=True,
-                    url="https://chatgpt.com",  # Fixed URL per spec
+                    url="https://chatgpt.com",
                     status="ready",
                     data=data,
                     cost=cost,
@@ -243,6 +244,43 @@ class ChatGPTSearchService:
                     data_received_at=data_received_at,
                     row_count=row_count,
                 )
+            
+            elif response.status == 202:
+                # Async response - need to poll (ChatGPT doesn't support true sync)
+                data = await response.json()
+                snapshot_id = data.get("snapshot_id")
+                
+                if not snapshot_id:
+                    return ScrapeResult(
+                        success=False,
+                        url="https://chatgpt.com",
+                        status="error",
+                        error="No snapshot_id in response",
+                        platform="chatgpt",
+                        request_sent_at=request_sent_at,
+                        data_received_at=data_received_at,
+                    )
+                
+                # Poll for results
+                snapshot_id_received_at = datetime.now(timezone.utc)
+                
+                from ...utils.polling import poll_until_ready
+                
+                result = await poll_until_ready(
+                    get_status_func=self._get_status_async,
+                    fetch_result_func=self._fetch_result_async,
+                    snapshot_id=snapshot_id,
+                    poll_interval=10,
+                    poll_timeout=timeout,
+                    request_sent_at=request_sent_at,
+                    snapshot_id_received_at=snapshot_id_received_at,
+                    platform="chatgpt",
+                    cost_per_record=0.005,
+                )
+                
+                result.url = "https://chatgpt.com"
+                return result
+            
             else:
                 error_text = await response.text()
                 return ScrapeResult(
