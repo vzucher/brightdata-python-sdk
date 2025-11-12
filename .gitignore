@@ -1,6 +1,5 @@
-# Old SDK versions and reference implementations (archived)
-old-sdk/
-ref-sdk/
+# Archived SDK versions and reference implementations
+archive/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
