@@ -1,177 +1,317 @@
-"""Main Bright Data SDK client."""
+"""Main Bright Data SDK client - Enterprise-grade entry point."""
 
 import os
-from typing import Optional, Union, List
-from datetime import datetime, timezone
+from typing import Optional, Dict, Any, List
+from pathlib import Path
 
 from .core.engine import AsyncEngine
-from .api.web_unlocker import WebUnlockerService
-from .models import ScrapeResult
-from .exceptions import ValidationError
+from .exceptions import ValidationError, AuthenticationError, APIError
+from .services import ScrapeService, SearchService, CrawlerService
 
 
-class BrightData:
+class BrightDataClient:
     """
-    Modern async-first Bright Data SDK client.
+    Main entry point for Bright Data SDK.
     
-    Provides high-level interface for all Bright Data APIs with async-first
-    design and sync wrappers for compatibility.
+    Provides unified access to all Bright Data services with robust authentication
+    and configuration management. Designed for enterprise use with fail-fast
+    authentication and clear error messages.
     
     Example:
-        >>> # Simple usage
-        >>> client = BrightData(api_token="your_token")
-        >>> result = client.scrape("https://example.com")
+        >>> # Auto-load from environment
+        >>> client = BrightDataClient()
         >>> 
-        >>> # Async usage
-        >>> async with BrightData(api_token="your_token") as client:
-        ...     result = await client.scrape_async("https://example.com")
+        >>> # Explicit token
+        >>> client = BrightDataClient(token="your_token")
+        >>> 
+        >>> # Service-specific tokens
+        >>> client = BrightDataClient(
+        ...     token="general_token",
+        ...     scrape_token="scrape_specific_token",
+        ...     search_token="search_specific_token"
+        ... )
+        >>> 
+        >>> # Service access
+        >>> result = await client.scrape.amazon.products(url="...")
+        >>> results = await client.search.linkedin.jobs(query="...")
+        >>> crawl_result = await client.crawler.discover(domain="...")
+        >>> 
+        >>> # Connection testing
+        >>> is_valid = await client.test_connection()
+        >>> account_info = await client.get_account_info()
     """
     
+    ENV_TOKEN_NAMES = [
+        "BRIGHTDATA_API_TOKEN",
+        "BRIGHTDATA_TOKEN",
+        "BRIGHT_DATA_API_TOKEN",
+        "BRIGHT_DATA_TOKEN",
+    ]
+    
     DEFAULT_TIMEOUT = 30
+    DEFAULT_ZONE = "sdk_unlocker"
     
     def __init__(
         self,
-        api_token: Optional[str] = None,
-        web_unlocker_zone: str = "sdk_unlocker",
+        token: Optional[str] = None,
+        scrape_token: Optional[str] = None,
+        search_token: Optional[str] = None,
+        crawler_token: Optional[str] = None,
         timeout: int = DEFAULT_TIMEOUT,
+        default_zone: str = DEFAULT_ZONE,
     ):
         """
         Initialize Bright Data client.
         
+        Token resolution order:
+        1. Explicit token parameter (general token)
+        2. Service-specific tokens (scrape_token, search_token, crawler_token)
+        3. Environment variables (BRIGHTDATA_API_TOKEN, etc.)
+        4. .env file in current directory
+        5. .env file in project root
+        
         Args:
-            api_token: Your Bright Data API token (or set BRIGHTDATA_API_TOKEN env var).
-            web_unlocker_zone: Zone name for web unlocker (default: "sdk_unlocker").
-            timeout: Default timeout in seconds (default: 30).
+            token: General API token (used as fallback for all services).
+            scrape_token: Token specific for scraping services (optional).
+            search_token: Token specific for search services (optional).
+            crawler_token: Token specific for crawler services (optional).
+            timeout: Default timeout in seconds for API requests.
+            default_zone: Default zone name for web unlocker operations.
         
         Raises:
-            ValidationError: If API token is not provided.
+            ValidationError: If token is not provided and cannot be loaded from environment.
         """
-        self.api_token = api_token or os.getenv("BRIGHTDATA_API_TOKEN")
-        if not self.api_token:
-            raise ValidationError(
-                "API token required. Provide api_token parameter or set BRIGHTDATA_API_TOKEN environment variable."
-            )
+        self._token = self._resolve_token(token)
+        self._scrape_token = scrape_token.strip() if scrape_token and isinstance(scrape_token, str) else None
+        self._search_token = search_token.strip() if search_token and isinstance(search_token, str) else None
+        self._crawler_token = crawler_token.strip() if crawler_token and isinstance(crawler_token, str) else None
+        self._timeout = timeout
+        self._default_zone = default_zone
+        self._engine: Optional[AsyncEngine] = None
+        self._scrape: Optional[ScrapeService] = None
+        self._search: Optional[SearchService] = None
+        self._crawler: Optional[CrawlerService] = None
+    
+    def _resolve_token(self, explicit_token: Optional[str]) -> str:
+        """
+        Resolve API token from multiple sources.
         
-        self.web_unlocker_zone = web_unlocker_zone
-        self.timeout = timeout
-        self.engine = AsyncEngine(self.api_token, timeout=timeout)
-        self._web_unlocker_service: Optional[WebUnlockerService] = None
+        Resolution order:
+        1. Explicit token parameter
+        2. Environment variables
+        3. .env file
+        
+        Args:
+            explicit_token: Token provided explicitly.
+        
+        Returns:
+            Resolved API token.
+        
+        Raises:
+            ValidationError: If token cannot be resolved.
+        """
+        if explicit_token:
+            if not isinstance(explicit_token, str) or not explicit_token.strip():
+                raise ValidationError("Token must be a non-empty string")
+            return explicit_token.strip()
+        
+        for env_name in self.ENV_TOKEN_NAMES:
+            token = os.getenv(env_name)
+            if token and token.strip():
+                return token.strip()
+        
+        token = self._load_token_from_env_file()
+        if token:
+            return token
+        raise ValidationError(
+            f"API token required. Provide token parameter or set one of these "
+            f"environment variables: {', '.join(self.ENV_TOKEN_NAMES)}"
+        )
+    
+    def _load_token_from_env_file(self) -> Optional[str]:
+        """Load token from .env file if present."""
+        try:
+            from dotenv import load_dotenv
+            
+            env_path = Path(".env")
+            if env_path.exists():
+                load_dotenv(env_path)
+                for env_name in self.ENV_TOKEN_NAMES:
+                    token = os.getenv(env_name)
+                    if token and token.strip():
+                        return token.strip()
+            
+            for i in range(3):
+                env_path = Path("../" * i + ".env")
+                if env_path.exists():
+                    load_dotenv(env_path)
+                    for env_name in self.ENV_TOKEN_NAMES:
+                        token = os.getenv(env_name)
+                        if token and token.strip():
+                            return token.strip()
+        except ImportError:
+            pass
+        except Exception:
+            pass
+        
+        return None
+    
+    @property
+    def token(self) -> str:
+        """Get the API token (masked for security)."""
+        if len(self._token) > 8:
+            return f"{self._token[:4]}...{self._token[-4:]}"
+        return "***"
+    
+    @property
+    def timeout(self) -> int:
+        """Get default timeout in seconds."""
+        return self._timeout
+    
+    @property
+    def default_zone(self) -> str:
+        """Get default zone name."""
+        return self._default_zone
+    
+    def _get_engine(self, service_token: Optional[str] = None) -> AsyncEngine:
+        """Get or create AsyncEngine instance with optional service-specific token."""
+        if service_token:
+            return AsyncEngine(service_token, timeout=self._timeout)
+        if self._engine is None:
+            self._engine = AsyncEngine(self._token, timeout=self._timeout)
+        return self._engine
+    
+    @property
+    def scrape(self) -> ScrapeService:
+        """Access scraping services (Amazon, LinkedIn, ChatGPT, etc.)."""
+        if self._scrape is None:
+            engine = self._get_engine(self._scrape_token)
+            self._scrape = ScrapeService(engine, self._default_zone)
+        return self._scrape
+    
+    @property
+    def search(self) -> SearchService:
+        """Access search services (Google, Bing, Yandex, LinkedIn, etc.)."""
+        if self._search is None:
+            engine = self._get_engine(self._search_token)
+            self._search = SearchService(engine)
+        return self._search
+    
+    @property
+    def crawler(self) -> CrawlerService:
+        """Access web crawling services."""
+        if self._crawler is None:
+            engine = self._get_engine(self._crawler_token)
+            self._crawler = CrawlerService(engine)
+        return self._crawler
+    
+    async def test_connection(self) -> bool:
+        """
+        Test API connection and authentication.
+        
+        Makes a lightweight API call to verify credentials are valid.
+        
+        Returns:
+            True if connection is valid, False otherwise.
+        
+        Example:
+            >>> client = BrightDataClient()
+            >>> async with client:
+            ...     is_valid = await client.test_connection()
+            ...     if not is_valid:
+            ...         print("Invalid credentials")
+        """
+        try:
+            zones = await self.list_zones()
+            return True
+        except (AuthenticationError, APIError):
+            return False
+        except Exception:
+            return False
+    
+    async def list_zones(self) -> List[Dict[str, Any]]:
+        """
+        List all active zones in your Bright Data account.
+        
+        Returns:
+            List of zone dictionaries with their configurations.
+        
+        Raises:
+            AuthenticationError: If authentication fails.
+            APIError: If API request fails.
+        
+        Example:
+            >>> client = BrightDataClient()
+            >>> async with client:
+            ...     zones = await client.list_zones()
+            ...     print(f"Found {len(zones)} zones")
+        """
+        engine = self._get_engine()
+        response = await engine.get("/zone/get_active_zones")
+        
+        async with response:
+            if response.status != 200:
+                error_text = await response.text()
+                raise APIError(
+                    f"Failed to list zones: {response.status}",
+                    status_code=response.status,
+                    response_text=error_text,
+                )
+            
+            try:
+                data = await response.json()
+                return data if isinstance(data, list) else []
+            except Exception as e:
+                raise APIError(f"Failed to parse zones response: {str(e)}")
+    
+    async def get_account_info(self) -> Dict[str, Any]:
+        """
+        Get account information using zones list as a proxy.
+        
+        Since Bright Data API doesn't have a dedicated /account endpoint,
+        this method uses the zones list to verify account access and returns
+        zone information as account metadata.
+        
+        Returns:
+            Dictionary with account information derived from zones:
+            - zones: List of active zones
+            - zone_count: Number of active zones
+            - authenticated: True if credentials are valid
+        
+        Raises:
+            AuthenticationError: If authentication fails.
+            APIError: If API request fails.
+        
+        Example:
+            >>> client = BrightDataClient()
+            >>> info = await client.get_account_info()
+            >>> print(f"Zones: {info['zone_count']}")
+        """
+        try:
+            zones = await self.list_zones()
+            return {
+                "zones": zones,
+                "zone_count": len(zones) if isinstance(zones, list) else 0,
+                "authenticated": True,
+            }
+        except (AuthenticationError, APIError) as e:
+            raise
     
     async def __aenter__(self):
         """Async context manager entry."""
-        await self.engine.__aenter__()
-        self._web_unlocker_service = WebUnlockerService(self.engine)
+        if self._engine is None:
+            self._engine = AsyncEngine(self._token, timeout=self._timeout)
+        await self._engine.__aenter__()
         return self
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit."""
-        await self.engine.__aexit__(exc_type, exc_val, exc_tb)
-        self._web_unlocker_service = None
+        if self._engine:
+            await self._engine.__aexit__(exc_type, exc_val, exc_tb)
     
-    def _ensure_service(self) -> WebUnlockerService:
-        """Ensure WebUnlockerService is initialized."""
-        if self._web_unlocker_service is None:
-            raise RuntimeError(
-                "Client must be used as async context manager for async methods. "
-                "For sync methods, use client.scrape() directly."
-            )
-        return self._web_unlocker_service
-    
-    async def scrape_async(
-        self,
-        url: Union[str, List[str]],
-        zone: Optional[str] = None,
-        country: str = "",
-        response_format: str = "raw",
-        method: str = "GET",
-        timeout: Optional[int] = None,
-    ) -> Union[ScrapeResult, List[ScrapeResult]]:
-        """
-        Scrape URL(s) asynchronously using Web Unlocker API.
-        
-        This is the fastest, most cost-effective option for basic HTML extraction
-        without JavaScript rendering. Uses Bright Data's Web Unlocker proxy service
-        with anti-bot capabilities.
-        
-        Args:
-            url: Single URL string or list of URLs to scrape.
-            zone: Bright Data zone identifier (defaults to web_unlocker_zone from init).
-            country: Two-letter ISO country code for proxy location (optional).
-            response_format: Response format - "json" for structured data, "raw" for HTML string.
-            method: HTTP method for the request (default: "GET").
-            timeout: Request timeout in seconds (uses client default if not provided).
-        
-        Returns:
-            ScrapeResult for single URL, or List[ScrapeResult] for multiple URLs.
-        
-        Example:
-            >>> async with BrightData(api_token="token") as client:
-            ...     result = await client.scrape_async("https://example.com")
-            ...     print(result.data)
-        """
-        service = self._ensure_service()
-        zone = zone or self.web_unlocker_zone
-        return await service.scrape_async(
-            url=url,
-            zone=zone,
-            country=country,
-            response_format=response_format,
-            method=method,
-            timeout=timeout,
-        )
-    
-    def scrape(
-        self,
-        url: Union[str, List[str]],
-        zone: Optional[str] = None,
-        country: str = "",
-        response_format: str = "raw",
-        method: str = "GET",
-        timeout: Optional[int] = None,
-    ) -> Union[ScrapeResult, List[ScrapeResult]]:
-        """
-        Scrape URL(s) synchronously using Web Unlocker API.
-        
-        This is the fastest, most cost-effective option for basic HTML extraction
-        without JavaScript rendering. Uses Bright Data's Web Unlocker proxy service
-        with anti-bot capabilities.
-        
-        Args:
-            url: Single URL string or list of URLs to scrape.
-            zone: Bright Data zone identifier (defaults to web_unlocker_zone from init).
-            country: Two-letter ISO country code for proxy location (optional).
-            response_format: Response format - "json" for structured data, "raw" for HTML string.
-            method: HTTP method for the request (default: "GET").
-            timeout: Request timeout in seconds (uses client default if not provided).
-        
-        Returns:
-            ScrapeResult for single URL, or List[ScrapeResult] for multiple URLs.
-        
-        Example:
-            >>> client = BrightData(api_token="token")
-            >>> result = client.scrape("https://example.com")
-            >>> print(result.data)
-        """
-        import asyncio
-        
-        effective_zone = zone or self.web_unlocker_zone
-        
-        async def _scrape():
-            async with self.engine:
-                service = WebUnlockerService(self.engine)
-                return await service.scrape_async(
-                    url=url,
-                    zone=effective_zone,
-                    country=country,
-                    response_format=response_format,
-                    method=method,
-                    timeout=timeout,
-                )
-        
-        try:
-            loop = asyncio.get_running_loop()
-            raise RuntimeError(
-                "Cannot call sync method from async context. Use scrape_async() instead."
-            )
-        except RuntimeError:
-            return asyncio.run(_scrape())
+    def __repr__(self) -> str:
+        """String representation."""
+        return f"<BrightDataClient token={self.token} timeout={self._timeout}s>"
+
+
+BrightData = BrightDataClient

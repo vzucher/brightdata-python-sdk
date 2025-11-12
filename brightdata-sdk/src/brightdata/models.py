@@ -242,6 +242,7 @@ class SearchResult(BaseResult):
     data: Optional[List[Dict[str, Any]]] = None
     total_found: Optional[int] = None
     search_engine: SearchEngineType = None
+    platform: PlatformType = None
     country: Optional[str] = None
     page: Optional[int] = None
     results_per_page: Optional[int] = None

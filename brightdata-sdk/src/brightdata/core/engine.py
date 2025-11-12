@@ -83,22 +83,42 @@ class AsyncEngine:
             request_headers.update(headers)
         
         try:
-            async with self._session.request(
+            response = await self._session.request(
                 method=method,
                 url=url,
                 json=json_data,
                 params=params,
                 headers=request_headers,
-            ) as response:
-                if response.status == 401:
+            )
+            
+            if response.status == 401:
+                async with response:
                     text = await response.text()
-                    raise AuthenticationError(f"Unauthorized (401): {text}")
-                elif response.status == 403:
+                raise AuthenticationError(f"Unauthorized (401): {text}")
+            elif response.status == 403:
+                async with response:
                     text = await response.text()
-                    raise AuthenticationError(f"Forbidden (403): {text}")
-                
-                return response
-                
+                raise AuthenticationError(f"Forbidden (403): {text}")
+            
+            if 400 <= response.status < 500:
+                async with response:
+                    text = await response.text()
+                raise APIError(
+                    f"Client error ({response.status}): {text}",
+                    status_code=response.status,
+                    response_text=text,
+                )
+            
+            if 500 <= response.status < 600:
+                async with response:
+                    text = await response.text()
+                raise APIError(
+                    f"Server error ({response.status}): {text}",
+                    status_code=response.status,
+                    response_text=text,
+                )
+            
+            return response
         except aiohttp.ClientError as e:
             raise NetworkError(f"Network error: {str(e)}") from e
         except asyncio.TimeoutError as e:

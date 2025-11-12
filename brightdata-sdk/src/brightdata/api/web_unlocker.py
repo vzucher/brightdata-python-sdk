@@ -125,39 +125,40 @@ class WebUnlockerService(BaseAPI):
             
             data_received_at = datetime.now(timezone.utc)
             
-            if response.status == 200:
-                if response_format == "json":
-                    try:
-                        data = await response.json()
-                    except Exception as e:
-                        raise APIError(f"Failed to parse JSON response: {str(e)}")
+            async with response:
+                if response.status == 200:
+                    if response_format == "json":
+                        try:
+                            data = await response.json()
+                        except Exception as e:
+                            raise APIError(f"Failed to parse JSON response: {str(e)}")
+                    else:
+                        data = await response.text()
+                    
+                    root_domain = extract_root_domain(url)
+                    html_char_size = len(data) if isinstance(data, str) else None
+                    
+                    return ScrapeResult(
+                        success=True,
+                        url=url,
+                        status="ready",
+                        data=data,
+                        cost=None,
+                        request_sent_at=request_sent_at,
+                        data_received_at=data_received_at,
+                        root_domain=root_domain,
+                        html_char_size=html_char_size,
+                    )
                 else:
-                    data = await response.text()
-                
-                root_domain = extract_root_domain(url)
-                html_char_size = len(data) if isinstance(data, str) else None
-                
-                return ScrapeResult(
-                    success=True,
-                    url=url,
-                    status="ready",
-                    data=data,
-                    cost=None,
-                    request_sent_at=request_sent_at,
-                    data_received_at=data_received_at,
-                    root_domain=root_domain,
-                    html_char_size=html_char_size,
-                )
-            else:
-                error_text = await response.text()
-                return ScrapeResult(
-                    success=False,
-                    url=url,
-                    status="error",
-                    error=f"API returned status {response.status}: {error_text}",
-                    request_sent_at=request_sent_at,
-                    data_received_at=data_received_at,
-                )
+                    error_text = await response.text()
+                    return ScrapeResult(
+                        success=False,
+                        url=url,
+                        status="error",
+                        error=f"API returned status {response.status}: {error_text}",
+                        request_sent_at=request_sent_at,
+                        data_received_at=data_received_at,
+                    )
         
         except Exception as e:
             data_received_at = datetime.now(timezone.utc)
