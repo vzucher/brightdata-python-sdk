@@ -3,7 +3,7 @@
 __version__ = "2.0.0"
 
 # Export main client
-from .client import BrightData
+from .client import BrightDataClient, BrightData
 
 # Export result models
 from .models import (
@@ -31,7 +31,8 @@ from .api.web_unlocker import WebUnlockerService
 __all__ = [
     "__version__",
     # Main client
-    "BrightData",
+    "BrightDataClient",
+    "BrightData",  # Alias for BrightDataClient (backward compatibility)
     # Result models
     "BaseResult",
     "ScrapeResult",
