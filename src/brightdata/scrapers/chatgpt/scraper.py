@@ -91,11 +91,13 @@ class ChatGPTScraper(BaseWebScraper):
         
         # Execute workflow
         timeout = poll_timeout or self.MIN_POLL_TIMEOUT
-        result = await self._execute_workflow_async(
+        result = await self.workflow_executor.execute(
             payload=payload,
-            include_errors=True,
+            dataset_id=self.DATASET_ID,
             poll_interval=poll_interval,
             poll_timeout=timeout,
+            include_errors=True,
+            normalize_func=self.normalize_result,
         )
         
         return result
@@ -167,11 +169,13 @@ class ChatGPTScraper(BaseWebScraper):
         
         # Execute workflow
         timeout = poll_timeout or self.MIN_POLL_TIMEOUT
-        result = await self._execute_workflow_async(
+        result = await self.workflow_executor.execute(
             payload=payload,
-            include_errors=True,
+            dataset_id=self.DATASET_ID,
             poll_interval=poll_interval,
             poll_timeout=timeout,
+            include_errors=True,
+            normalize_func=self.normalize_result,
         )
         
         return result

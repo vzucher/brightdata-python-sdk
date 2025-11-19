@@ -115,7 +115,7 @@ class BaseSERPService(BaseAPI):
         **kwargs
     ) -> SearchResult:
         """Execute single search query."""
-        request_sent_at = datetime.now(timezone.utc)
+        trigger_sent_at = datetime.now(timezone.utc)
         
         # Build search URL based on engine
         search_url = self._build_search_url(
@@ -141,7 +141,7 @@ class BaseSERPService(BaseAPI):
                 f"{self.engine.BASE_URL}{self.ENDPOINT}",
                 json_data=payload
             ) as response:
-                data_received_at = datetime.now(timezone.utc)
+                data_fetched_at = datetime.now(timezone.utc)
                 
                 if response.status == 200:
                     data = await response.json()
@@ -157,8 +157,8 @@ class BaseSERPService(BaseAPI):
                         search_engine=self.SEARCH_ENGINE,
                         country=location,
                         results_per_page=num_results,
-                        request_sent_at=request_sent_at,
-                        data_received_at=data_received_at,
+                        trigger_sent_at=trigger_sent_at,
+                        data_fetched_at=data_fetched_at,
                     )
                 else:
                     error_text = await response.text()
@@ -167,8 +167,8 @@ class BaseSERPService(BaseAPI):
                         query={"q": query},
                         error=f"Search failed (HTTP {response.status}): {error_text}",
                         search_engine=self.SEARCH_ENGINE,
-                        request_sent_at=request_sent_at,
-                        data_received_at=data_received_at,
+                        trigger_sent_at=trigger_sent_at,
+                        data_fetched_at=data_fetched_at,
                     )
         
         except Exception as e:
@@ -180,8 +180,8 @@ class BaseSERPService(BaseAPI):
                 query={"q": query},
                 error=f"Unexpected error: {str(e)}",
                 search_engine=self.SEARCH_ENGINE,
-                request_sent_at=datetime.now(timezone.utc),
-                data_received_at=datetime.now(timezone.utc),
+                trigger_sent_at=datetime.now(timezone.utc),
+                data_fetched_at=datetime.now(timezone.utc),
             )
     
     async def _search_multiple_async(
@@ -220,8 +220,8 @@ class BaseSERPService(BaseAPI):
                         query={"q": queries[i]},
                         error=f"Exception: {str(result)}",
                         search_engine=self.SEARCH_ENGINE,
-                        request_sent_at=datetime.now(timezone.utc),
-                        data_received_at=datetime.now(timezone.utc),
+                        trigger_sent_at=datetime.now(timezone.utc),
+                        data_fetched_at=datetime.now(timezone.utc),
                     )
                 )
             else:

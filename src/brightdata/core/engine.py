@@ -2,9 +2,11 @@
 
 import asyncio
 import aiohttp
+import ssl
 from typing import Optional, Dict, Any
 from datetime import datetime, timezone
-from ..exceptions import APIError, AuthenticationError, NetworkError, TimeoutError
+from ..exceptions import APIError, AuthenticationError, NetworkError, TimeoutError, SSLError
+from ..utils.ssl_helpers import is_ssl_certificate_error, get_ssl_error_message
 
 # Rate limiting support
 try:
@@ -312,7 +314,14 @@ class AsyncEngine:
                         raise AuthenticationError(f"Forbidden (403): {text}")
                     
                     return self._response
-                except aiohttp.ClientError as e:
+                except (aiohttp.ClientError, ssl.SSLError, OSError) as e:
+                    # Check for SSL certificate errors first
+                    # aiohttp wraps SSL errors in ClientConnectorError or ClientSSLError
+                    # OSError can also be raised for SSL issues
+                    if is_ssl_certificate_error(e):
+                        error_message = get_ssl_error_message(e)
+                        raise SSLError(error_message) from e
+                    # Other network errors
                     raise NetworkError(f"Network error: {str(e)}") from e
                 except asyncio.TimeoutError as e:
                     raise TimeoutError(f"Request timeout after {self._timeout.total} seconds") from e

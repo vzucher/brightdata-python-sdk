@@ -1,0 +1,131 @@
+"""
+Scraping service namespace.
+
+Provides hierarchical access to specialized scrapers and generic scraping.
+"""
+
+import asyncio
+from typing import Union, List, TYPE_CHECKING
+
+from ..models import ScrapeResult
+
+if TYPE_CHECKING:
+    from ..client import BrightDataClient
+
+
+class ScrapeService:
+    """
+    Scraping service namespace.
+    
+    Provides hierarchical access to specialized scrapers and generic scraping.
+    """
+    
+    def __init__(self, client: 'BrightDataClient'):
+        """Initialize scrape service with client reference."""
+        self._client = client
+        self._amazon = None
+        self._linkedin = None
+        self._chatgpt = None
+        self._generic = None
+    
+    @property
+    def amazon(self):
+        """
+        Access Amazon scraper.
+        
+        Returns:
+            AmazonScraper instance for Amazon product scraping and search
+        
+        Example:
+            >>> # URL-based scraping
+            >>> result = client.scrape.amazon.scrape("https://amazon.com/dp/B123")
+            >>> 
+            >>> # Keyword-based search
+            >>> result = client.scrape.amazon.products(keyword="laptop")
+        """
+        if self._amazon is None:
+            from ..scrapers.amazon import AmazonScraper
+            self._amazon = AmazonScraper(bearer_token=self._client.token)
+        return self._amazon
+    
+    @property
+    def linkedin(self):
+        """
+        Access LinkedIn scraper.
+        
+        Returns:
+            LinkedInScraper instance for LinkedIn data extraction
+        
+        Example:
+            >>> # URL-based scraping
+            >>> result = client.scrape.linkedin.scrape("https://linkedin.com/in/johndoe")
+            >>> 
+            >>> # Search for jobs
+            >>> result = client.scrape.linkedin.jobs(keyword="python", location="NYC")
+            >>> 
+            >>> # Search for profiles
+            >>> result = client.scrape.linkedin.profiles(keyword="data scientist")
+            >>> 
+            >>> # Search for companies
+            >>> result = client.scrape.linkedin.companies(keyword="tech startup")
+        """
+        if self._linkedin is None:
+            from ..scrapers.linkedin import LinkedInScraper
+            self._linkedin = LinkedInScraper(bearer_token=self._client.token)
+        return self._linkedin
+    
+    @property
+    def chatgpt(self):
+        """
+        Access ChatGPT scraper.
+        
+        Returns:
+            ChatGPTScraper instance for ChatGPT interactions
+        
+        Example:
+            >>> # Single prompt
+            >>> result = client.scrape.chatgpt.prompt("Explain async programming")
+            >>> 
+            >>> # Multiple prompts
+            >>> result = client.scrape.chatgpt.prompts([
+            ...     "What is Python?",
+            ...     "What is JavaScript?"
+            ... ])
+        """
+        if self._chatgpt is None:
+            from ..scrapers.chatgpt import ChatGPTScraper
+            self._chatgpt = ChatGPTScraper(bearer_token=self._client.token)
+        return self._chatgpt
+    
+    @property
+    def generic(self):
+        """Access generic web scraper (Web Unlocker)."""
+        if self._generic is None:
+            self._generic = GenericScraper(self._client)
+        return self._generic
+
+
+class GenericScraper:
+    """Generic web scraper using Web Unlocker API."""
+    
+    def __init__(self, client: 'BrightDataClient'):
+        """Initialize generic scraper."""
+        self._client = client
+    
+    async def url_async(
+        self,
+        url: Union[str, List[str]],
+        country: str = "",
+        response_format: str = "raw",
+    ) -> Union[ScrapeResult, List[ScrapeResult]]:
+        """Scrape URL(s) asynchronously."""
+        return await self._client.scrape_url_async(
+            url=url,
+            country=country,
+            response_format=response_format,
+        )
+    
+    def url(self, *args, **kwargs) -> Union[ScrapeResult, List[ScrapeResult]]:
+        """Scrape URL(s) synchronously."""
+        return asyncio.run(self.url_async(*args, **kwargs))
+

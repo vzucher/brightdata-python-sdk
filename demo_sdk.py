@@ -221,7 +221,7 @@ def test_amazon_products():
         return
     
     try:
-        result = client.scrape.amazon.products(url=url, sync=True, timeout=65)
+        result = client.scrape.amazon.products(url=url, timeout=240)
         
         if result.success:
             print(f"[OK] Success!")
@@ -262,7 +262,7 @@ def test_amazon_reviews():
             pastDays=int(past_days) if past_days else None,
             keyWord=keyword if keyword else None,
             numOfReviews=int(num_reviews) if num_reviews else None,
-            sync=True
+            timeout=240
         )
         
         if result.success:
@@ -290,7 +290,7 @@ def test_linkedin_profiles():
         return
     
     try:
-        result = client.scrape.linkedin.profiles(url=url, sync=True)
+        result = client.scrape.linkedin.profiles(url=url, timeout=180)
         
         if result.success:
             print(f"[OK] Success!")
@@ -320,7 +320,7 @@ def test_linkedin_jobs_url():
         return
     
     try:
-        result = client.scrape.linkedin.jobs(url=url, sync=True)
+        result = client.scrape.linkedin.jobs(url=url, timeout=180)
         
         if result.success:
             print(f"[OK] Success!")
@@ -466,7 +466,7 @@ def test_chatgpt_search():
         result = client.search.chatGPT.chatGPT(
             prompt=prompt,
             webSearch=True if web_search == 'y' else False,
-            sync=True
+            timeout=240
         )
         
         if result.success:
@@ -538,11 +538,8 @@ def test_sync_vs_async():
         
         # Test async mode  
         print("\n2. Async mode (with polling):")
-        print("   (Would use sync=False parameter on platform scrapers)")
-        print("   Generic scraper doesn't have sync mode, but platform scrapers do")
-        print()
-        print("   Example:")
-        print("     result = client.scrape.linkedin.profiles(url='...', sync=False)")
+        print("   All scrapers use standard async workflow (trigger/poll/fetch)")
+        print("   Sync methods are simple wrappers around async methods")
         
     except Exception as e:
         print(f"[FAIL] Error: {e}")
@@ -566,9 +563,9 @@ def show_complete_interface():
     
     print("SCRAPE (URL-based extraction):")
     print("  client.scrape.generic.url(url)")
-    print("  client.scrape.amazon.products(url, sync=True, timeout=65)")
-    print("  client.scrape.amazon.reviews(url, pastDays, keyWord, numOfReviews, sync, timeout)")
-    print("  client.scrape.amazon.sellers(url, sync, timeout)")
+    print("  client.scrape.amazon.products(url, timeout=240)")
+    print("  client.scrape.amazon.reviews(url, pastDays, keyWord, numOfReviews, timeout=240)")
+    print("  client.scrape.amazon.sellers(url, timeout=240)")
     print("  client.scrape.linkedin.posts(url, sync, timeout)")
     print("  client.scrape.linkedin.jobs(url, sync, timeout)")
     print("  client.scrape.linkedin.profiles(url, sync, timeout)")
