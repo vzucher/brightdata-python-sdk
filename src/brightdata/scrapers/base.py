@@ -61,12 +61,15 @@ class BaseWebScraper(ABC):
     MIN_POLL_TIMEOUT: int = DEFAULT_MIN_POLL_TIMEOUT
     COST_PER_RECORD: float = DEFAULT_COST_PER_RECORD
     
-    def __init__(self, bearer_token: Optional[str] = None):
+    def __init__(self, bearer_token: Optional[str] = None, engine: Optional[AsyncEngine] = None):
         """
         Initialize platform scraper.
         
         Args:
             bearer_token: Bright Data API token. If None, loads from environment.
+            engine: Optional AsyncEngine instance. If provided, reuses the existing engine
+                   (recommended when using via client to share connection pool and rate limiter).
+                   If None, creates a new engine (for standalone usage).
         
         Raises:
             ValidationError: If token not provided and not in environment
@@ -78,7 +81,8 @@ class BaseWebScraper(ABC):
                 f"Provide bearer_token parameter or set BRIGHTDATA_API_TOKEN environment variable."
             )
         
-        self.engine = AsyncEngine(self.bearer_token)
+        # Reuse engine if provided (for resource efficiency), otherwise create new one
+        self.engine = engine if engine is not None else AsyncEngine(self.bearer_token)
         self.api_client = DatasetAPIClient(self.engine)
         self.workflow_executor = WorkflowExecutor(
             api_client=self.api_client,

@@ -207,7 +207,10 @@ class SearchService:
         """
         if self._linkedin_search is None:
             from ..scrapers.linkedin.search import LinkedInSearchScraper
-            self._linkedin_search = LinkedInSearchScraper(bearer_token=self._client.token)
+            self._linkedin_search = LinkedInSearchScraper(
+                bearer_token=self._client.token,
+                engine=self._client.engine
+            )
         return self._linkedin_search
     
     @property
@@ -235,7 +238,10 @@ class SearchService:
         """
         if self._chatgpt_search is None:
             from ..scrapers.chatgpt.search import ChatGPTSearchService
-            self._chatgpt_search = ChatGPTSearchService(bearer_token=self._client.token)
+            self._chatgpt_search = ChatGPTSearchService(
+                bearer_token=self._client.token,
+                engine=self._client.engine
+            )
         return self._chatgpt_search
     
     @property
@@ -264,6 +270,9 @@ class SearchService:
         """
         if self._instagram_search is None:
             from ..scrapers.instagram.search import InstagramSearchScraper
-            self._instagram_search = InstagramSearchScraper(bearer_token=self._client.token)
+            self._instagram_search = InstagramSearchScraper(
+                bearer_token=self._client.token,
+                engine=self._client.engine
+            )
         return self._instagram_search
 

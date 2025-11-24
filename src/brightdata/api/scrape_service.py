@@ -47,7 +47,10 @@ class ScrapeService:
         """
         if self._amazon is None:
             from ..scrapers.amazon import AmazonScraper
-            self._amazon = AmazonScraper(bearer_token=self._client.token)
+            self._amazon = AmazonScraper(
+                bearer_token=self._client.token,
+                engine=self._client.engine
+            )
         return self._amazon
     
     @property
@@ -73,7 +76,10 @@ class ScrapeService:
         """
         if self._linkedin is None:
             from ..scrapers.linkedin import LinkedInScraper
-            self._linkedin = LinkedInScraper(bearer_token=self._client.token)
+            self._linkedin = LinkedInScraper(
+                bearer_token=self._client.token,
+                engine=self._client.engine
+            )
         return self._linkedin
     
     @property
@@ -96,7 +102,10 @@ class ScrapeService:
         """
         if self._chatgpt is None:
             from ..scrapers.chatgpt import ChatGPTScraper
-            self._chatgpt = ChatGPTScraper(bearer_token=self._client.token)
+            self._chatgpt = ChatGPTScraper(
+                bearer_token=self._client.token,
+                engine=self._client.engine
+            )
         return self._chatgpt
     
     @property
@@ -132,7 +141,10 @@ class ScrapeService:
         """
         if self._facebook is None:
             from ..scrapers.facebook import FacebookScraper
-            self._facebook = FacebookScraper(bearer_token=self._client.token)
+            self._facebook = FacebookScraper(
+                bearer_token=self._client.token,
+                engine=self._client.engine
+            )
         return self._facebook
     
     @property
@@ -166,7 +178,10 @@ class ScrapeService:
         """
         if self._instagram is None:
             from ..scrapers.instagram import InstagramScraper
-            self._instagram = InstagramScraper(bearer_token=self._client.token)
+            self._instagram = InstagramScraper(
+                bearer_token=self._client.token,
+                engine=self._client.engine
+            )
         return self._instagram
     
     @property
